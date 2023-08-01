@@ -24,7 +24,7 @@ class energyInterpolationCoREAS():
         """        
         self.logger = logging.getLogger('NuRadioReco.energyInterpolationCoREAS')
 
-    def begin(self, input_files, output_folder = "", profileVxB = None, profileVxVxB = None):
+    def begin(self, input_files, output_folder = "", profileVxB = None, profileVxVxB = None, save_output = 0, n_grid_points = 1000):
         """
         begin method
 
@@ -40,19 +40,35 @@ class energyInterpolationCoREAS():
             list of VxB points for which the energy profiles are created
         profileVxVxB: list of points on the VxVxB axis (default = None)
             list of VxVxB points for which the energy profiles are created
+        save_output: flag (default = 0)
+            save or discard the output
+        n_grid_points: number of the grid points (default = 1000)
+            number of the grid points for VxB and VxVxB coordinates, between their minimum and maximum values
         """
         self.__input_files = input_files
         self.__output_folder = output_folder    
         self.profileVxB = profileVxB
         self.profileVxVxB = profileVxVxB
+        self.save_output = save_output
+        self.n_grid_points = n_grid_points
 
     def run(self):
+        """
+        CoREAS observe positions are transformed to the shower coordiante system.
+        Sum of the squares of electric field strength is interpolated with the interpolation_fourier module.
+        run returns the inetrpolated values as a two-dimensional numpy.ndarray.
+
+        For the profile plots, the closest interpolated value to the given input is used."
+        """
         for filePath in self.__input_files: 
            
-            fileName = filePath[filePath.find("SIM"): filePath.find(".hdf5")]
-            coreasSimulationData = h5py.File(filePath, "r")
-            logger.warning("could not open {0} file.".format(fileName))
-            
+            try:
+                coreasSimulationData = h5py.File(filePath, "r")
+            except:
+                self.logger.warning("could not open >> {0} << \n".format(filePath))
+                continue
+
+            fileName = filePath[filePath.find("SIM"): filePath.find(".hdf5")]            
             observersData = coreasSimulationData["CoREAS"]["observers"]
             observersDataNames = coreasSimulationData["CoREAS"]["observers"].keys()
      
@@ -81,18 +97,20 @@ class energyInterpolationCoREAS():
             energy = np.array(energy)
 
             fourierInterpolator = interpF.interp2d_fourier(coordVB, coordVVB, energy)
-            intPointsVxB = np.linspace(min(coordVB), max(coordVB), 1000)
-            intPointsVxVxB = np.linspace(min(coordVVB), max(coordVVB), 1000)
+            intPointsVxB = np.linspace(min(coordVB), max(coordVB), self.n_grid_points)
+            intPointsVxVxB = np.linspace(min(coordVVB), max(coordVVB), self.n_grid_points)
             X, Y = np.meshgrid(intPointsVxB, intPointsVxVxB)
             Z = fourierInterpolator(X, Y)
-            
+    
             plt.imshow(Z, cmap='turbo', extent = [min(intPointsVxB), max(intPointsVxB), min(intPointsVxVxB), max(intPointsVxVxB)])
             colorbar = plt.colorbar()
             colorbar.set_label(r'$\mathrm{\sum_{t} E^{2}}$')
             plt.xlabel('VxB [m]')
             plt.ylabel('VxVxB [m]')
             plt.tight_layout()
-            plt.savefig("{0}footprint_from_file_{1}.pdf".format(self.__output_folder, fileName))
+            if (self.save_output == 1): 
+                plt.savefig("{0}footprint_from_file_{1}.pdf".format(self.__output_folder, fileName))
+            plt.show()
             plt.clf()
 
             if (self.profileVxB != None):
@@ -103,7 +121,9 @@ class energyInterpolationCoREAS():
                     plt.xlabel('VxB [m]')
                     plt.ylabel(r'$\mathrm{\sum_{t} E^{2}  [V^{2}/m^{2}]}$')
                     plt.tight_layout()
-                    plt.savefig("{0}profile_VxB_at_{1}_m_from_file_{2}.pdf".format(self.__output_folder, round(c,3), fileName))
+                    if (self.save_output == 1): 
+                        plt.savefig("{0}profile_VxB_coord_at_{1}_m_from_file_{2}.pdf".format(self.__output_folder, round(c,3), fileName))
+                    plt.show()
                     plt.clf()
 
             if (self.profileVxVxB != None):
@@ -114,8 +134,11 @@ class energyInterpolationCoREAS():
                     plt.xlabel('VxVxB [m]')
                     plt.ylabel(r'$\mathrm{\sum_{t} E^{2}  [V^{2}/m^{2}]}$')
                     plt.tight_layout()
-                    plt.savefig("{0}profile_VxVxB_at_{1}_m_from_file_{2}.pdf".format(self.__output_folder, round(c,3), fileName))
+                    if (self.save_output == 1): 
+                        plt.savefig("{0}profile_VxVxB_coord_at_{1}_m_from_file_{2}.pdf".format(self.__output_folder, round(c,3), fileName))
+                    plt.show()
                     plt.clf()
+        return Z
     def end(self):
         pass
 
