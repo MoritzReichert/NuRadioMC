@@ -22,9 +22,11 @@ class energyInterpolationCoREAS():
         """
         __init__ method
         """        
+        self.__input_files = None
+        self.__output_folder = None    
         self.logger = logging.getLogger('NuRadioReco.energyInterpolationCoREAS')
 
-    def begin(self, input_files, output_folder = "", profileVxB = None, profileVxVxB = None, save_output = 0, n_grid_points = 1000):
+    def begin(self, input_files, output_folder = "", profileVxB = False, profileVxVxB = False, save_output = 0, n_grid_points = 1000):
         """
         begin method
 
@@ -113,7 +115,44 @@ class energyInterpolationCoREAS():
             plt.show()
             plt.clf()
 
-            if (self.profileVxB != None):
+            dataPointsVxB = []
+            dataPointsVxVxB = []
+
+            if (self.profileVxB != False):
+                print("\n\n  ==============================================================================")
+                print(" | Insert VxB cooridantes for the lateral distribution or press >> q << to quit |")   
+                print("  ==============================================================================")               
+                while True:
+                    vxb = input()
+                    if vxb == "q" or vxb == "Q":
+                        break
+                    else:
+                        try:
+                            vxb = float(vxb)
+                        except:
+                            print("not a number, continue providing input or press >> q << to quit")
+                            continue
+                        dataPointsVxB.append(vxb)
+                self.profileVxB = dataPointsVxB
+
+            if (self.profileVxVxB != False):
+                print("\n\n  =================================================================================")
+                print(" | Insert VxxVxB cooridantes for the lateral distribution or press >> q << to quit |")   
+                print("  =================================================================================")               
+                while True:
+                    vxvxb = input()
+                    if vxvxb == "q" or vxvxb == "Q":
+                        break
+                    else:
+                        try:
+                            vxvxb = float(vxvxb)
+                        except:
+                            print("not a number, continue providing input or press >> q << to quit")
+                            continue
+                        dataPointsVxVxB.append(vxvxb)
+                self.profileVxVxB = dataPointsVxVxB
+
+            if (self.profileVxB != False):
                 for coord in self.profileVxB:
                     c =  min(intPointsVxB, key = lambda x: abs(x-coord))
                     ind = list(intPointsVxB).index(c)
@@ -126,7 +165,7 @@ class energyInterpolationCoREAS():
                     plt.show()
                     plt.clf()
 
-            if (self.profileVxVxB != None):
+            if (self.profileVxVxB != False):
                 for coord in self.profileVxVxB:
                     c =  min(intPointsVxVxB, key = lambda x: abs(x-coord))
                     ind = list(intPointsVxVxB).index(c)
@@ -139,6 +178,7 @@ class energyInterpolationCoREAS():
                     plt.show()
                     plt.clf()
         return Z
+        
     def end(self):
         pass
 
