@@ -41,7 +41,7 @@ class readCoREAS:
         self.__lowfreq = None #changed
         self.__highfreq = None #changed
 
-    def begin(self, input_files, station_id, n_cores=10, max_distance=2 * units.km, seed=None, perform_interpolation = False, lowfreq = 30, highfreq = 500): #changed
+    def begin(self, input_files, station_id, n_cores=10, max_distance=2 * units.km, seed=None, perform_interpolation = False, lowfreq = 30, highfreq = 500,  sampling_period = 0.2e-9): #changed
         """
         begin method
 
@@ -62,6 +62,12 @@ class readCoREAS:
             Seed for the random number generation. If None is passed, no seed is set
         perform_interpolation: bool (default: False) # changed
             flag to perform or not the interpolation of the signal 
+        lowfreq: float (default = 30)
+            lower frequency for the bandpass filter in interpolation
+        highfreq: float (default = 500)
+            higher frequency for the bandpass filter in interpolation
+        sampling_period: float (default 0.2e-9)
+            sampling period of the signal
         """
         self.__input_files = input_files
         self.__station_id = station_id
@@ -73,6 +79,8 @@ class readCoREAS:
         self.__perform_interpolation = perform_interpolation #changed
         self.__lowfreq = lowfreq
         self.__highfreq = highfreq
+        self.__sampling_period = sampling_period
+
 
     @register_run()
     def run(self, detector, output_mode=0):
@@ -178,7 +186,7 @@ class readCoREAS:
             self.__t += time.time() - t
 
             if self.__perform_interpolation == True:
-                signal_interpolator = sigF.interp2d_signal(positions_vBvvB[:,0], positions_vBvvB[:,1], electric_field_on_sky[:,:,1:], lowfreq = self.__lowfreq, highfreq = self.__highfreq,  sampling_period=0.2e-9,) 
+                signal_interpolator = sigF.interp2d_signal(positions_vBvvB[:,0], positions_vBvvB[:,1], electric_field_on_sky[:,:,1:], lowfreq = self.__lowfreq, highfreq = self.__highfreq,  sampling_period=self.__sampling_period) 
 
             for iCore, core in enumerate(cores_to_iterate):
                 t = time.time()

@@ -137,7 +137,7 @@ class energyInterpolationCoREAS():
 
             if (self.profileVxVxB != False):
                 print("\n\n  =================================================================================")
-                print(" | Insert VxxVxB cooridantes for the lateral distribution or press >> q << to quit |")   
+                print(" | Insert VxVxB cooridantes for the lateral distribution or press >> q << to quit |")   
                 print("  =================================================================================")               
                 while True:
                     vxvxb = input()
