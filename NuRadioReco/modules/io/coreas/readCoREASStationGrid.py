@@ -14,10 +14,10 @@ import time
 import os
 #changed
 import sys
-sys.path.append("/home/pysia/Pulpit/RNO-G/cr-pulse-interpolator/")
-import interpolation_fourier as interpF
-import signal_interpolation_fourier as sigF
-import demo_helper
+#sys.path.append("/home/pysia/Pulpit/RNO-G/cr-pulse-interpolator/")
+from cr_pulse_interpolator import interpolation_fourier as interpF
+from cr_pulse_interpolator import signal_interpolation_fourier as sigF
+from cr_pulse_interpolator  import demo_helper
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set()
@@ -49,6 +49,7 @@ class readCoREAS:
         self.__highfreq = None #changed
 
     def begin(self, input_files, xmin, xmax, ymin, ymax, n_cores=10, seed=None, log_level=logging.INFO,  perform_interpolation = False, lowfreq = 30, highfreq = 500, sampling_period = 0.2e-9): #changed
+
         """
         begin method
 
@@ -126,12 +127,15 @@ class readCoREAS:
             )
             positions = []
             signals = [] #changed
+            ef = []
             for i, observer in enumerate(corsika['CoREAS']['observers'].values()):
                 position = observer.attrs['position']
                 positions.append(np.array([-position[1], position[0], 0]) * units.cm)
 #                 self.logger.debug("({:.0f}, {:.0f})".format(positions[i][0], positions[i][1]
                 electric_field =  observer[()]  #changed
+                ef.append(list(electric_field))
                 signals.append(np.array([electric_field[:,0]*units.second, -electric_field[:,2]*conversion_fieldstrength_cgs_to_SI, electric_field[:,1]*conversion_fieldstrength_cgs_to_SI, electric_field[:,3]*conversion_fieldstrength_cgs_to_SI]).T) #changed
+                
             positions = np.array(positions)
             signals = np.array(signals) #changed 
 
@@ -139,9 +143,9 @@ class readCoREAS:
             cs = cstrafo.cstrafo(zenith, azimuth, magnetic_field_vector)
             positions_vBvvB = cs.transform_from_magnetic_to_geographic(positions.T)
             positions_vBvvB = cs.transform_to_vxB_vxvxB(positions_vBvvB).T
-#             for i, pos in enumerate(positions_vBvvB):
-#                 self.logger.debug("star shape")
-#                 self.logger.debug("({:.0f}, {:.0f}); ({:.0f}, {:.0f})".format(positions[i, 0], positions[i, 1], pos[0], pos[1]))
+            for i, pos in enumerate(positions_vBvvB):
+                self.logger.debug("star shape")
+                self.logger.debug("({:.0f}, {:.0f}); ({:.0f}, {:.0f})".format(positions[i, 0], positions[i, 1], pos[0], pos[1]))
 
             dd = (positions_vBvvB[:, 0] ** 2 + positions_vBvvB[:, 1] ** 2) ** 0.5
             ddmax = dd.max()
@@ -185,7 +189,9 @@ class readCoREAS:
         #             core_rel_to_station_vBvvB = cs.transform_from_magnetic_to_geographic(core_rel_to_station)
                     core_rel_to_station_vBvvB = cs.transform_to_vxB_vxvxB(core_rel_to_station)
                     dcore = (core_rel_to_station_vBvvB[0] ** 2 + core_rel_to_station_vBvvB[1] ** 2) ** 0.5
-#                     print(f"{core_rel_to_station}, {core_rel_to_station_vBvvB} -> {dcore}")
+                    #print(f"{core_rel_to_station}, {core_rel_to_station_vBvvB} -> {dcore}")
+                    print(dcore, " >", ddmax )
+                    
                     if(dcore > ddmax):
                         # station is outside of the star shape pattern, create empty station
                         station = NuRadioReco.framework.station.Station(station_id)
@@ -237,8 +243,9 @@ class readCoREAS:
                         channel_ids = detector.get_channel_ids(station_id)
                         sim_station = coreas.make_sim_station(station_id, corsika, data, channel_ids, interpFlag =self.__perform_interpolation) #changed
                         station.set_sim_station(sim_station)
-                        evt.set_station(station)                        
-                    
+                        evt.set_station(station)            
+      
+                                    
                 if(output_mode == 0):
                     self.__t += time.time() - t
                     yield evt
