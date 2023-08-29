@@ -13,10 +13,9 @@ import time
 import os
 #changed
 import sys
-sys.path.append("/home/pysia/Pulpit/RNO-G/cr-pulse-interpolator/")
-import interpolation_fourier as interpF
-import signal_interpolation_fourier as sigF
-import demo_helper
+from cr_pulse_interpolator import interpolation_fourier as interpF
+from cr_pulse_interpolator import signal_interpolation_fourier as sigF
+from cr_pulse_interpolator  import demo_helper
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set()
