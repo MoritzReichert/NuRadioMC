@@ -11,7 +11,6 @@ import numpy.random
 import logging
 import time
 import os
-import cr_pulse_interpolator.signal_interpolation_fourier
 import matplotlib.pyplot as plt
 
 conversion_fieldstrength_cgs_to_SI = 2.99792458e10 * units.micro * units.volt / units.meter 
@@ -28,12 +27,8 @@ class readCoREAS:
         self.__current_input_file = None
         self.__random_generator = None
         self.logger = logging.getLogger('NuRadioReco.readCoREAS')
-        self.__perform_interpolation = None 
-        self.__interp_lowfreq = None 
-        self.__interp_highfreq = None 
 
-    def begin(self, input_files, station_id, n_cores=10, max_distance=2 * units.km, seed=None, 
-              perform_interpolation=False, interp_lowfreq=30, interp_highfreq=500,  sampling_period=0.2e-9): 
+    def begin(self, input_files, station_id, n_cores=10, max_distance=2 * units.km, seed=None): 
         """
         begin method
 
@@ -52,26 +47,13 @@ class readCoREAS:
             star pattern simulation
         seed: int (default: None)
             Seed for the random number generation. If None is passed, no seed is set
-        perform_interpolation: bool (default: False) # changed
-            flag to perform or not the interpolation of the signal 
-        lowfreq: float (default = 30)
-            lower frequency for the bandpass filter in interpolation
-        interp_highfreq: float (default = 500)
-            higher frequency for the bandpass filter in interpolation
-        sampling_period: float (default 0.2e-9)
-            sampling period of the signal
         """
         self.__input_files = input_files
         self.__station_id = station_id
         self.__n_cores = n_cores
         self.__max_distace = max_distance
         self.__current_input_file = 0
-
         self.__random_generator = numpy.random.RandomState(seed) 
-        self.__perform_interpolation = perform_interpolation 
-        self.__interp_lowfreq = interp_lowfreq
-        self.__interp_highfreq = interp_highfreq
-        self.__sampling_period = sampling_period
 
 
     @register_run()
@@ -108,15 +90,11 @@ class readCoREAS:
                     corsika['inputs'].attrs["ERANGE"][0] * units.GeV,
                     corsika['inputs'].attrs["THETAP"][0]))
             positions = []
-            signals = [] 
             for i, observer in enumerate(corsika['CoREAS']['observers'].values()):
                 position = observer.attrs['position']
                 positions.append(np.array([-position[1], position[0], 0]) * units.cm)
                 self.logger.debug("({:.0f}, {:.0f})".format(position[0], position[1]))
-                electric_field =  observer[()]  
-                signals.append(np.array([electric_field[:,0]*units.second, -electric_field[:,2]*conversion_fieldstrength_cgs_to_SI, electric_field[:,1]*conversion_fieldstrength_cgs_to_SI, electric_field[:,3]*conversion_fieldstrength_cgs_to_SI]).T) 
-            positions = np.array(positions)
-            signals = np.array(signals)  
+                positions = np.array(positions)
 
             max_distance = self.__max_distace
             if(max_distance is None):
@@ -146,19 +124,12 @@ class readCoREAS:
             dcores = (cores_vBvvB[:, 0] ** 2 + cores_vBvvB[:, 1] ** 2) ** 0.5
             mask_cores_in_starpattern = dcores <= ddmax
 
-            electric_field_on_sky = []
-            for signal in signals:
-                signal_geographic = cs.transform_from_magnetic_to_geographic(signal[:,1:].T) 
-                signal_on_sky = cs.transform_from_ground_to_onsky(signal_geographic)
-                electric_field_on_sky.append(np.insert(signal_on_sky.T, 0, signal[:,0], axis = 1))
-            electric_field_on_sky = np.array(electric_field_on_sky)
-
             if((not np.sum(mask_cores_in_starpattern)) and (output_mode == 1)):  # handle special case of no core position being generated within star pattern
                 observer = corsika['CoREAS']['observers'].values()[0]
 
                 evt = NuRadioReco.framework.event.Event(corsika['inputs'].attrs['RUNNR'], corsika['inputs'].attrs['EVTNR'])  # create empty event
                 station = NuRadioReco.framework.station.Station(self.__station_id)
-                sim_station = coreas.make_sim_station(self.__station_id, corsika, data, detector.get_channel_ids(self.__station_id), interpFlag =self.__perform_interpolation) 
+                sim_station = coreas.make_sim_station(self.__station_id, corsika, observer, detector.get_channel_ids(self.__station_id)) 
 
                 station.set_sim_station(sim_station)
                 evt.set_station(station)
@@ -173,9 +144,6 @@ class readCoREAS:
 
             self.__t_per_event += time.time() - t_per_event
             self.__t += time.time() - t
-
-            if self.__perform_interpolation == True:
-                signal_interpolator = cr_pulse_interpolator.signal_interpolation_fourier.interp2d_signal(positions_vBvvB[:,0], positions_vBvvB[:,1], electric_field_on_sky[:,:,1:], lowfreq= self.__interp_lowfreq, highfreq = self.__interp_highfreq,  sampling_period=self.__sampling_period) 
 
             for iCore, core in enumerate(cores_to_iterate):
                 t = time.time()
@@ -200,24 +168,11 @@ class readCoREAS:
                 )
                 t_event_structure = time.time()
                 observer = corsika['CoREAS']['observers'].get(key)
-
-                if self.__perform_interpolation == True and observer is not None:
-                    station_ids = detector.get_station_ids()
-                    for station_id in station_ids:
-                        station_position = detector.get_absolute_position(station_id)
-                        det_shower_pos = cs.transform_to_vxB_vxvxB(station_position)
-                        efield = signal_interpolator(det_shower_pos[0], det_shower_pos[1])
-                        data = [efield[:,0], efield[:,1], efield[:,2]]  
-                        data = np.array(data)
-
-                elif self.__perform_interpolation == False and observer is not None:
-                    data = np.copy(observer)
-                    data[:, 1], data[:, 2] = -observer[:, 2], observer[:, 1]
      
                 evt = NuRadioReco.framework.event.Event(self.__current_input_file, iCore)  # create empty event
                 station = NuRadioReco.framework.station.Station(self.__station_id)
                 channel_ids = detector.get_channel_ids(self.__station_id)
-                sim_station = coreas.make_sim_station(self.__station_id, corsika, data, channel_ids, interpFlag =self.__perform_interpolation) 
+                sim_station = coreas.make_sim_station(self.__station_id, corsika, observer, channel_ids) 
                 station.set_sim_station(sim_station) 
                 evt.set_station(station)
                 sim_shower = coreas.make_sim_shower(corsika, observer, detector, self.__station_id)
