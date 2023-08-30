@@ -145,16 +145,22 @@ def make_sim_station(station_id, corsika, observer, channel_ids, weight=None, in
     """
 
     zenith, azimuth, magnetic_field_vector = get_angles(corsika)
-    if interpFlag == False:
+
+    if observer is None:
+        observer = np.zeros((512, 4))
+        observer[:, 0] = np.arange(0, 512) * units.ns / units.second
+
+    elif interpFlag == False and observer is not None:
         # convert to SI units
         observer[:, 0] *= units.second
         observer[:, 1] *= conversion_fieldstrength_cgs_to_SI
         observer[:, 2] *= conversion_fieldstrength_cgs_to_SI
         observer[:, 3] *= conversion_fieldstrength_cgs_to_SI
         cs = coordinatesystems.cstrafo(zenith, azimuth, magnetic_field_vector=magnetic_field_vector)
-        efield = cs.transform_from_magnetic_to_geographic(data[:, 1:].T)
+        efield = cs.transform_from_magnetic_to_geographic(observer[:, 1:].T)
         efield = cs.transform_from_ground_to_onsky(efield)
-    elif interpFlag == True:
+
+    elif interpFlag == True and observer is not None:
         efield = observer
 
     # prepend trace with zeros to not have the pulse directly at the start
@@ -168,6 +174,7 @@ def make_sim_station(station_id, corsika, observer, channel_ids, weight=None, in
     sim_station = NuRadioReco.framework.sim_station.SimStation(station_id)
     electric_field = NuRadioReco.framework.electric_field.ElectricField(channel_ids)
     electric_field.set_trace(efield2, sampling_rate)
+    electric_field.set_trace_start_time(observer[0, 0])
     electric_field.set_parameter(efp.ray_path_type, 'direct')
     electric_field.set_parameter(efp.zenith, zenith)
     electric_field.set_parameter(efp.azimuth, azimuth)
