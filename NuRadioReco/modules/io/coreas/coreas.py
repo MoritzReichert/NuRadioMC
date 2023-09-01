@@ -149,9 +149,10 @@ def make_sim_station(station_id, corsika, observer, channel_ids, weight=None, in
     if observer is None:
         observer = np.zeros((512, 4))
         observer[:, 0] = np.arange(0, 512) * units.ns / units.second
+        efield = observer
 
     elif interpFlag == False and observer is not None:
-        
+
         data = np.copy(observer)
         data[:, 1], data[:, 2] = -observer[:, 2], observer[:, 1]
 
