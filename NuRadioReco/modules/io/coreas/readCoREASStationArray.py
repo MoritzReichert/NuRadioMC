@@ -112,11 +112,11 @@ class readCoREASStationArray:
                 self.__current_input_file += 1
                 continue
             corsika = h5py.File(self.__input_files[self.__current_input_file], "r")
-            self.logger.info(
-                "using coreas simulation {} with E={:2g} theta = {:.0f}".format(
-                    self.__input_files[self.__current_input_file],
-                    corsika['inputs'].attrs["ERANGE"][0] * units.GeV,
-                    corsika['inputs'].attrs["THETAP"][0]))
+            #self.logger.info(
+             #   "using coreas simulation {} with E={:2g} theta = {:.0f}".format(
+             #       self.__input_files[self.__current_input_file],
+             #       corsika['inputs'].attrs["ERANGE"][0] * units.GeV,
+             #       corsika['inputs'].attrs["THETAP"][0]))
             
             positions = []
             for i, observer in enumerate(corsika['CoREAS']['observers'].values()):
@@ -135,7 +135,7 @@ class readCoREASStationArray:
 
             dd = (positions_vBvvB[:, 0] ** 2 + positions_vBvvB[:, 1] ** 2) ** 0.5
             ddmax = dd.max()
-            self.logger.info("star shape from: {} - {}".format(-dd.max(), dd.max()))
+            #self.logger.info("star shape from: {} - {}".format(-dd.max(), dd.max()))
 
             # generate core positions randomly within a rectangle
             cores = np.array([self.__random_generator.uniform(self.__area[0], self.__area[1], self.__n_cores),
@@ -160,14 +160,14 @@ class readCoREASStationArray:
                     det_station_position = detector.get_absolute_position(station_id)
                     det_station_position[2] = 0
                     core_rel_to_station = core - det_station_position
-                    print('core_rel_to_station', core_rel_to_station)
+                    #print('core_rel_to_station', core_rel_to_station)
                     #core_rel_to_station_vBvvB = cs.transform_from_magnetic_to_geographic(core_rel_to_station)
                     #core_rel_to_station_vBvvB = cs.transform_to_vxB_vxvxB(core_rel_to_station)
                     dcore = (core_rel_to_station[0] ** 2 + core_rel_to_station[1] ** 2) ** 0.5
                     #print(f"{core_rel_to_station}, {core_rel_to_station_vBvvB} -> {dcore}")
                     
                     if(dcore > ddmax):
-                        print(f"station {station_id} is outside of star shape pattern")
+                        #print(f"station {station_id} is outside of star shape pattern")
                         # station is outside of the star shape pattern, create empty station
                         station = NuRadioReco.framework.station.Station(station_id)
                         channel_ids = detector.get_channel_ids(station_id)
@@ -219,8 +219,25 @@ class readCoREASStationArray:
                                         electric_field_on_sky[:,:,1:], lowfreq = self.__interp_lowfreq, highfreq = self.__interp_highfreq,  sampling_period= self.__sampling_period) 
 
 
-                        efield = signal_interpolator(det_station_position[0], det_station_position[1])
-                        data = [efield[:,0], efield[:,1], efield[:,2]]  
+                        # as the det_station_position is within the NuRadioReco coordinate system in needs to be transfromed to the shower plane.
+                        det_positions_vBvvB = cs.transform_from_magnetic_to_geographic(det_station_position.T)
+                        det_positions_vBvvB = cs.transform_to_vxB_vxvxB(det_positions_vBvvB).T 
+
+                        core_positions_vBvvB = cs.transform_from_magnetic_to_geographic(core.T)
+                        core_positions_vBvvB = cs.transform_to_vxB_vxvxB(core).T                        
+                        
+                        efield = signal_interpolator(det_positions_vBvvB[0], det_positions_vBvvB[1])
+
+                        if ( (det_positions_vBvvB[0]-core_positions_vBvvB[0])**2 +  ((det_positions_vBvvB[1]-core_positions_vBvvB[1])**2) <= ddmax**2  ):
+                            data = [efield[:,0], efield[:,1], efield[:,2]]  
+                        else:
+                            data = np.array([efield[:,0], efield[:,1], efield[:,2]])*0                   
+                        print(data)
+
+                        #plt.scatter(positions_vBvvB[:,0]+core_positions_vBvvB[0], positions_vBvvB[:,1]+core_positions_vBvvB[1])
+                        #plt.scatter(core_positions_vBvvB[0], core_positions_vBvvB[1])
+                        #plt.scatter(det_positions_vBvvB[0],det_positions_vBvvB[1])
+                        #plt.show()
                         data = np.array(data)   
                         station = NuRadioReco.framework.station.Station(station_id)
                         channel_ids = detector.get_channel_ids(station_id)
@@ -246,7 +263,7 @@ class readCoREASStationArray:
         from datetime import timedelta
         self.logger.setLevel(logging.INFO)
         dt = timedelta(seconds=self.__t)
-        self.logger.info("total time used by this module is {}".format(dt))
-        self.logger.info("\tcreate event structure {}".format(timedelta(seconds=self.__t_event_structure)))
-        self.logger.info("per event {}".format(timedelta(seconds=self.__t_per_event)))
+        #self.logger.info("total time used by this module is {}".format(dt))
+        #self.logger.info("\tcreate event structure {}".format(timedelta(seconds=self.__t_event_structure)))
+        #self.logger.info("per event {}".format(timedelta(seconds=self.__t_per_event)))
         return dt
