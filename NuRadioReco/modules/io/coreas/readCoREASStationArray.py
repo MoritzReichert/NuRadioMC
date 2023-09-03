@@ -161,8 +161,8 @@ class readCoREASStationArray:
                     det_station_position[2] = 0
                     core_rel_to_station = core - det_station_position
                     #print('core_rel_to_station', core_rel_to_station)
-                    #core_rel_to_station_vBvvB = cs.transform_from_magnetic_to_geographic(core_rel_to_station)
-                    #core_rel_to_station_vBvvB = cs.transform_to_vxB_vxvxB(core_rel_to_station)
+                    core_rel_to_station_vBvvB = cs.transform_from_magnetic_to_geographic(core_rel_to_station)
+                    core_rel_to_station_vBvvB = cs.transform_to_vxB_vxvxB(core_rel_to_station)
                     dcore = (core_rel_to_station[0] ** 2 + core_rel_to_station[1] ** 2) ** 0.5
                     #print(f"{core_rel_to_station}, {core_rel_to_station_vBvvB} -> {dcore}")
                     
